@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pythagorean Triangle Puzzle Game</title>
+
+<style>
+body{
+  font-family:Arial;
+  margin:0;
+  background:#eaeaea;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+
+#toolbar{
+  padding:15px;
+  background:#222;
+  color:white;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  flex-wrap:wrap;
+  width:100%;
+}
+
+button,select{
+  padding:8px;
+  font-size:15px;
+  cursor:pointer;
+}
+
+#hypoDisplay{
+  font-size:24px;
+  font-weight:bold;
+  margin-top:8px;   /* reduced */
+}
+
+#message{
+  margin-top:5px;   /* reduced */
+  font-weight:bold;
+  height:24px;
+}
+
+#grid{
+  position:relative;
+  width:600px;
+  height:600px;
+  margin-top:5px;   /* reduced from 20px */
+}
+
+.cell{
+  position:absolute;
+  border:2px solid #333;
+  box-sizing:border-box;
+  text-align:center;
+  font-weight:bold;
+  user-select:none;
+  background:white;
+}
+
+.locked{
+  background:#ddd;
+  pointer-events:none;
+}
+</style>
+</head>
+
+<body>
+
+<div id="toolbar">
+  <select id="triangleType">
+    <option value="3-4-5">3-4-5</option>
+    <option value="4-3-5">4-3-5</option>
+  </select>
+
+  <button onclick="loadPuzzles()">Load</button>
+  <button onclick="checkSolution()">Check</button>
+  <button onclick="giveUp()">Give Up</button>
+  <button onclick="nextPuzzle()">Next Puzzle</button>
+</div>
+
+<div id="hypoDisplay"></div>
+<div id="message"></div>
+<div id="grid"></div>
+
+<script>
+
+const grid = document.getElementById("grid");
+const hypoDisplay = document.getElementById("hypoDisplay");
+const message = document.getElementById("message");
+
+let puzzles = [];
+let currentPuzzle = null;
+let currentType = "3-4-5";
+let currentIndex = -1;
+
+function loadPuzzles(){
+
+  currentType = document.getElementById("triangleType").value;
+  currentIndex = -1;
+
+  fetch("data/" + currentType + ".json?ts=" + Date.now())
+    .then(res=>{
+      if(!res.ok) throw new Error("File not found");
+      return res.json();
+    })
+    .then(data=>{
+      puzzles = data;
+      nextPuzzle();
+    })
+    .catch(err=>{
+      console.error(err);
+      message.innerText="Failed to load puzzles.";
+      message.style.color="red";
+    });
+}
+
+function nextPuzzle(){
+
+  if(puzzles.length === 0) return;
+
+  currentIndex++;
+  if(currentIndex >= puzzles.length){
+    currentIndex = 0;
+  }
+
+  currentPuzzle = puzzles[currentIndex];
+
+  message.innerText="";
+  hypoDisplay.innerText="Hypotenuse: " + currentPuzzle.hypotenuse;
+
+  if(currentType==="3-4-5"){
+    createTriangle(3,4);
+  }else{
+    createTriangle(4,3);
+  }
+
+  fillHypotenuse();
+}
+
+function createTriangle(vLen, hLen){
+
+  grid.innerHTML="";
+  const size = 90;
+
+  const centerX = 300;
+  const centerY = 260;  /* moved up from 350 */
+
+  const baseX = centerX - (hLen * size)/2;
+  const baseY = centerY;
+
+  let verticalCells=[];
+  let horizontalCells=[];
+  let diagonalCells=[];
+
+  // Vertical
+  for(let i=0;i<vLen;i++){
+    const cell=createCell(size);
+    cell.style.left = baseX + "px";
+    cell.style.top  = (baseY - (vLen-1-i)*size) + "px";
+    grid.appendChild(cell);
+    verticalCells.push(cell);
+  }
+
+  // Horizontal
+  for(let i=0;i<hLen;i++){
+
+    if(i===0){
+      horizontalCells.push(verticalCells[vLen-1]);
+      continue;
+    }
+
+    const cell=createCell(size);
+    cell.style.left = (baseX + i*size) + "px";
+    cell.style.top  = baseY + "px";
+    grid.appendChild(cell);
+    horizontalCells.push(cell);
+  }
+
+  // Diagonal
+  diagonalCells.push(verticalCells[0]);
+
+  const startX = baseX;
+  const startY = baseY - (vLen-1)*size;
+  const endX = baseX + (hLen-1)*size;
+  const endY = baseY;
+
+  const dx = (endX - startX) / 4;
+  const dy = (endY - startY) / 4;
+
+  for(let i=1;i<4;i++){
+    const cell=createCell(size);
+    cell.style.left = (startX + dx*i) + "px";
+    cell.style.top  = (startY + dy*i) + "px";
+    grid.appendChild(cell);
+    diagonalCells.push(cell);
+  }
+
+  diagonalCells.push(horizontalCells[hLen-1]);
+
+  window.verticalCells = verticalCells;
+  window.horizontalCells = horizontalCells;
+  window.diagonalCells = diagonalCells;
+}
+
+function createCell(size){
+
+  const cell=document.createElement("div");
+  cell.className="cell";
+  cell.contentEditable=true;
+
+  cell.style.width=size+"px";
+  cell.style.height=size+"px";
+  cell.style.lineHeight=(size-4)+"px";
+  cell.style.fontSize="40px";
+
+  cell.addEventListener("input",e=>{
+    let v=e.target.innerText.toUpperCase().replace(/[^A-Z]/g,"");
+    e.target.innerText=v.slice(0,1);
+  });
+
+  return cell;
+}
+
+function fillHypotenuse(){
+  diagonalCells.forEach((cell,i)=>{
+    cell.innerText=currentPuzzle.hypotenuse[i];
+    cell.classList.add("locked");
+  });
+}
+
+function getWord(arr){
+  return arr.map(c=>c.innerText.trim()).join("");
+}
+
+function checkSolution(){
+
+  const userV = getWord(verticalCells);
+  const userH = getWord(horizontalCells);
+  const userD = getWord(diagonalCells);
+
+  if(userV===currentPuzzle.vertical &&
+     userH===currentPuzzle.horizontal &&
+     userD===currentPuzzle.hypotenuse){
+
+    message.innerText="Correct!";
+    message.style.color="green";
+  }else{
+    message.innerText="Incorrect.";
+    message.style.color="red";
+  }
+}
+
+function giveUp(){
+  verticalCells.forEach((c,i)=>c.innerText=currentPuzzle.vertical[i]);
+  horizontalCells.forEach((c,i)=>c.innerText=currentPuzzle.horizontal[i]);
+}
+
+</script>
+
+</body>
+</html>
