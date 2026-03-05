@@ -101,7 +101,7 @@ function loadPuzzles(){
   currentType = document.getElementById("triangleType").value;
   currentIndex = -1;
 
-  fetch("data/" + currentType + ".json?ts=" + Date.now())
+  fetch("./data/" + currentType + ".json?ts=" + Date.now())
     .then(res=>{
       if(!res.ok) throw new Error("File not found");
       return res.json();
@@ -261,4 +261,5 @@ function giveUp(){
 </script>
 
 </body>
+
 </html>
